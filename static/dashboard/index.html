@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电力智能巡检工作台</title>
+  <link rel="stylesheet" href="/dashboard-assets/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Atlas 200I DK / Power Inspection</p>
+        <h1>电力智能巡检工作台</h1>
+      </div>
+      <div class="top-actions">
+        <div class="node-pill" id="nodePill">
+          <span class="dot dot-muted"></span>
+          <span id="nodeText">等待边缘节点</span>
+        </div>
+        <button class="icon-btn" id="refreshBtn" title="刷新数据" aria-label="刷新数据">↻</button>
+      </div>
+    </header>
+
+    <section class="status-strip" aria-label="巡检状态总览">
+      <article>
+        <span>最新状态</span>
+        <strong id="overallStatus">未巡检</strong>
+      </article>
+      <article>
+        <span>一般告警</span>
+        <strong id="warningCount">0</strong>
+      </article>
+      <article>
+        <span>严重告警</span>
+        <strong id="criticalCount">0</strong>
+      </article>
+      <article>
+        <span>最近巡检</span>
+        <strong id="lastInspection">--</strong>
+      </article>
+    </section>
+
+    <section class="workbench">
+      <section class="monitor-panel" aria-label="监控画面">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Evidence Frame</p>
+            <h2>设备画面与检测框</h2>
+          </div>
+          <span id="modelVersion">model: --</span>
+        </div>
+        <div class="frame" id="frame">
+          <div class="cabinet">
+            <div class="busbar"></div>
+            <div class="meter"></div>
+            <div class="indicator red"></div>
+            <div class="indicator green"></div>
+            <div class="switch"></div>
+            <div class="vents"></div>
+          </div>
+          <div class="empty-state" id="emptyFrame">暂无巡检画面，先上传模拟数据</div>
+        </div>
+      </section>
+
+      <aside class="control-panel" aria-label="操作区">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Control</p>
+            <h2>联调操作</h2>
+          </div>
+        </div>
+        <button class="primary-btn" id="mockBtn">上传模拟推理</button>
+        <button class="secondary-btn" id="reportBtn">生成今日报告</button>
+        <button class="secondary-btn" id="explainBtn">解释首条告警</button>
+        <div class="log-box" id="logBox">系统就绪，等待操作。</div>
+      </aside>
+    </section>
+
+    <section class="data-grid">
+      <section class="table-panel">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Alerts</p>
+            <h2>当前告警</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>编号</th>
+                <th>设备</th>
+                <th>等级</th>
+                <th>描述</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="alertsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-panel">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Records</p>
+            <h2>巡检记录</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>记录</th>
+                <th>设备</th>
+                <th>时间</th>
+                <th>状态</th>
+                <th>告警</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="/dashboard-assets/app.js"></script>
+</body>
+</html>

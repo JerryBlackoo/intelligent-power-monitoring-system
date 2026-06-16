@@ -1,0 +1,16 @@
+{
+  "node_id": "atlas_01",
+  "device_id": "cabinet_01",
+  "captured_at": "2026-06-16 15:30:00",
+  "image_uri": "/images/rec_001.jpg",
+  "model_version": "yolov5s-power-v1",
+  "detections": [
+    {
+      "label": "red_indicator",
+      "confidence": 0.91,
+      "bbox": [120, 80, 60, 40],
+      "status": "warning",
+      "description": "检测到红色告警指示灯"
+    }
+  ]
+}
