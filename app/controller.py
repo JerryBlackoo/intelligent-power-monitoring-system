@@ -55,6 +55,7 @@ from app.services import (
     get_user_info,
     inference_result_to_dict,
     list_reports,
+    list_users,
     record_to_dict,
     resolve_alarm,
     resolve_record_alerts,
@@ -134,6 +135,11 @@ def users_me(user_id: str = "admin", db: Session = Depends(get_db)) -> ApiRespon
     if user is None:
         raise HTTPException(status_code=404, detail="user not found")
     return ok(user)
+
+
+@app.get("/api/users/list", response_model=ApiResponse)
+def users_list(db: Session = Depends(get_db)) -> ApiResponse:
+    return ok(list_users(db))
 
 
 # ═══════════════════════════ Edge ═══════════════════════════

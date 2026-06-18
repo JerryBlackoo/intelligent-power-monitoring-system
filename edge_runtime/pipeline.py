@@ -19,6 +19,18 @@ class InspectionPipeline:
         self.inference = inference
         self.uploader = uploader
 
+    def sync_deployment_config(self) -> bool:
+        """Check cloud for latest model version. Returns True if config changed."""
+        try:
+            cfg = self.uploader.fetch_deployment_config()
+            remote_version = cfg.get("model_version")
+            if remote_version and remote_version != self.config.model_version:
+                print(f"model version update: {self.config.model_version} → {remote_version}")
+                return True
+        except Exception as exc:
+            print(f"deployment config fetch failed: {exc}")
+        return False
+
     def run_once(self, device_id: Optional[str] = None) -> Dict[str, Any]:
         capture = self.camera.capture()
         detections = self.inference.infer(capture.image_path)
@@ -29,6 +41,17 @@ class InspectionPipeline:
             detections=detections,
             device_id=device_id or self.config.device_id,
         )
+
+        # P4: dual upload — also send raw detection data
+        detection_data = {
+            "image_uri": evidence["image_uri"],
+            "device_id": device_id or self.config.device_id,
+        }
+        try:
+            self.uploader.upload_detection_data(**detection_data)
+        except Exception as exc:
+            print(f"detection data upload failed (non-fatal): {exc}")
+
         return {
             "captured_at": capture.captured_at,
             "local_image_path": str(capture.image_path),

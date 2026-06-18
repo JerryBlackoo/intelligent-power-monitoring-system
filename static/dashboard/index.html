@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>巡检员智能工作台</title>
+  <title>电力智能巡检工作台</title>
   <link rel="stylesheet" href="/dashboard-assets/styles.css">
 </head>
 <body class="auth-locked">
-  <section class="login-screen" id="loginScreen" aria-label="巡检员登录">
+  <section class="login-screen" id="loginScreen" aria-label="系统登录">
     <form class="login-card" id="loginForm">
       <div class="login-mark">A</div>
-      <p class="eyebrow">Inspector Access</p>
-      <h2>巡检员登录</h2>
+      <p class="eyebrow">Power Access</p>
+      <h2>系统登录</h2>
       <label class="login-field">
         <span>用户名</span>
         <input id="loginUsername" name="username" type="text" autocomplete="username" required>
@@ -25,145 +25,347 @@
     </form>
   </section>
 
-  <main class="inspector-shell" id="inspectorShell">
-    <aside class="inspector-sidebar" aria-label="巡检员功能菜单">
-      <div class="sidebar-head">
-        <div>
-          <p class="eyebrow">Power Agent</p>
-          <h1>巡检员工作台</h1>
-        </div>
-        <button class="sidebar-toggle" type="button" aria-label="折叠菜单">□</button>
+  <main class="shell hidden" id="monitorShell" data-role-shell="monitor">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Atlas 200I DK / Power Inspection</p>
+        <h1>电力智能巡检工作台</h1>
       </div>
+      <div class="top-actions">
+        <div class="user-section" id="userSection">
+          <span class="user-avatar" id="userAvatar" data-user-avatar></span>
+          <div class="user-meta">
+            <span class="user-name" id="userName" data-user-name>--</span>
+            <span class="user-role" id="userRole" data-user-role>--</span>
+          </div>
+          <button class="logout-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录" data-logout>退出</button>
+        </div>
+        <button class="nav-return-btn hidden" id="adminHomeBtn" type="button">管理后台</button>
+        <button class="node-pill" id="nodePill" type="button" aria-haspopup="dialog" aria-controls="deviceModal" title="查看设备列表">
+          <span class="dot dot-muted"></span>
+          <span id="nodeText">等待边缘节点</span>
+        </button>
+        <button class="icon-btn" id="refreshBtn" type="button" title="刷新数据" aria-label="刷新数据">↻</button>
+      </div>
+    </header>
 
-      <nav class="side-nav">
-        <button class="side-nav-item active" type="button" data-inspector-view="agent" aria-controls="agentView" aria-selected="true">
-          <span class="nav-icon">AI</span>
-          <span>Agent 对话</span>
-        </button>
-        <button class="side-nav-item" type="button" data-inspector-view="report" aria-controls="reportView" aria-selected="false">
-          <span class="nav-icon">UP</span>
-          <span>Report 上传</span>
-        </button>
+    <section class="workbench">
+      <section class="monitor-panel" aria-label="边端设备实时检测数据">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Edge Device Live</p>
+            <h2>边端设备实时检测数据</h2>
+          </div>
+          <span id="edgeLiveMeta">node: --</span>
+        </div>
+        <div class="frame" id="frame">
+          <div class="cabinet">
+            <div class="busbar"></div>
+            <div class="meter"></div>
+            <div class="indicator red"></div>
+            <div class="indicator green"></div>
+            <div class="switch"></div>
+            <div class="vents"></div>
+          </div>
+          <div class="empty-state" id="emptyFrame">暂无边端实时画面</div>
+        </div>
+      </section>
+
+      <aside class="inference-panel" aria-label="边端实时推理数据">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Edge Inference Stream</p>
+            <h2>边端实时推理数据</h2>
+          </div>
+        </div>
+        <div class="inference-frame" id="inferenceFrame">
+          <div class="empty-state" id="emptyInferenceFrame">暂无推理画面</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="data-grid">
+      <section class="table-panel alerts-panel">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Alerts</p>
+            <h2>告警处理</h2>
+          </div>
+          <span id="alertsMeta">0 条活跃告警</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>告警</th>
+                <th>设备</th>
+                <th>等级</th>
+                <th>描述</th>
+                <th>时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="alertsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-panel records-panel">
+        <div class="panel-head compact records-head">
+          <div>
+            <p class="eyebrow">Records</p>
+            <h2>巡检记录</h2>
+          </div>
+          <div class="record-tabs" role="tablist" aria-label="巡检记录视图">
+            <button class="record-tab active" id="edgeRecordsTab" type="button" role="tab" aria-selected="true" aria-controls="edgeRecordsView" data-record-view="edge">边缘设备记录</button>
+            <button class="record-tab" id="inspectorRecordsTab" type="button" role="tab" aria-selected="false" aria-controls="inspectorRecordsView" data-record-view="inspector">巡检员记录</button>
+          </div>
+        </div>
+        <div class="record-summary-strip" aria-label="巡检记录统计">
+          <div>
+            <span>边缘上传</span>
+            <strong id="edgeRecordCount">0</strong>
+          </div>
+          <div>
+            <span>现场记录</span>
+            <strong id="inspectorRecordCount">0</strong>
+          </div>
+          <div>
+            <span>待处理</span>
+            <strong id="pendingRecordCount">0</strong>
+          </div>
+        </div>
+        <div class="record-view active" id="edgeRecordsView" role="tabpanel" aria-labelledby="edgeRecordsTab">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>记录</th>
+                  <th>边缘节点</th>
+                  <th>设备</th>
+                  <th>模型版本</th>
+                  <th>检测 / 告警</th>
+                  <th>时间</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="edgeRecordsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="record-view" id="inspectorRecordsView" role="tabpanel" aria-labelledby="inspectorRecordsTab" hidden>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>记录</th>
+                  <th>设备</th>
+                  <th>工作人员姓名</th>
+                  <th>时间</th>
+                  <th>处理状态</th>
+                  <th>Agent 建议</th>
+                  <th>检查情况记录文件</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="inspectorRecordsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <nav class="pagination" aria-label="巡检记录分页">
+          <button class="page-btn" id="prevRecordsPage" type="button">上一页</button>
+          <span class="page-info" id="recordsPageInfo">第 1 / 1 页 · 共 0 条</span>
+          <button class="page-btn" id="nextRecordsPage" type="button">下一页</button>
+        </nav>
+      </section>
+    </section>
+  </main>
+
+  <main class="inspector-shell hidden" id="inspectorShell" data-role-shell="inspector">
+    <aside class="inspector-sidebar">
+      <div class="side-brand">
+        <p class="eyebrow">Field Console</p>
+        <h1>巡检员工作台</h1>
+      </div>
+      <nav class="side-nav" aria-label="巡检员菜单">
+        <button class="side-nav-item active" type="button" data-inspector-view="report">Report 上传</button>
+        <button class="side-nav-item" type="button" data-inspector-view="agent">Agent 对话</button>
       </nav>
-
-      <div class="sidebar-section">
-        <p>当前任务</p>
-        <button class="task-pill" type="button">待处理巡检报告</button>
-        <button class="task-pill" type="button">设备异常复核</button>
-      </div>
-
-      <div class="sidebar-user">
-        <span class="user-avatar" id="userAvatar"></span>
+      <div class="side-user">
+        <span class="user-avatar" data-user-avatar></span>
         <div class="user-meta">
-          <span class="user-name" id="userName">--</span>
-          <span class="user-role" id="userRole">--</span>
+          <span class="user-name" data-user-name>--</span>
+          <span class="user-role" data-user-role>--</span>
         </div>
-        <button class="logout-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录">退出</button>
+        <button class="logout-btn" type="button" data-logout>退出</button>
       </div>
     </aside>
 
     <section class="inspector-main">
-      <section class="inspector-view agent-view active" id="agentView" data-view-panel="agent" aria-label="Agent 对话界面">
-        <header class="workspace-topbar">
-          <div>
-            <p class="eyebrow">Inspection Agent</p>
-            <h2>Agent 对话</h2>
-          </div>
-          <button class="ghost-icon-btn" id="newChatBtn" type="button" title="新建对话" aria-label="新建对话">+</button>
-        </header>
-
-        <div class="agent-stage">
-          <div class="agent-greeting">
-            <p class="eyebrow">On Duty</p>
-            <h3 id="agentGreeting">嗨，巡检员。开始现场问答</h3>
-          </div>
-
-          <div class="chat-thread" id="chatThread" aria-live="polite">
-            <article class="chat-message assistant">
-              <span>AI</span>
-              <p>我可以协助整理巡检记录、解释告警原因、生成处理建议。</p>
-            </article>
-          </div>
-
-          <div class="agent-attachment hidden" id="agentAttachmentName"></div>
-          <form class="agent-composer" id="agentForm">
-            <label class="composer-tool" aria-label="添加图片">
-              <input id="agentImage" type="file" accept="image/*">
-              <span>+</span>
-            </label>
-            <textarea id="agentInput" rows="1" placeholder="询问告警原因、处理建议或报告摘要"></textarea>
-            <button class="send-btn" type="submit" aria-label="发送">↑</button>
-          </form>
-
-          <div class="agent-suggestions" aria-label="快捷提问">
-            <button type="button" data-prompt="帮我总结最近一次巡检记录">总结巡检记录</button>
-            <button type="button" data-prompt="这条绝缘子缺陷告警应该如何处理">告警处理建议</button>
-            <button type="button" data-prompt="根据上传报告生成整改说明">生成整改说明</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="inspector-view report-view" id="reportView" data-view-panel="report" aria-label="Report 上传界面" hidden>
-        <header class="workspace-topbar">
+      <section class="inspector-view active" id="inspectorReportView" data-inspector-panel="report">
+        <div class="workspace-topbar">
           <div>
             <p class="eyebrow">Inspection Report</p>
-            <h2>Report 上传</h2>
+            <h2>检查情况记录上传</h2>
           </div>
-          <span class="upload-state" id="uploadState">待上传</span>
-        </header>
-
+          <span class="upload-state" id="uploadState">等待上传</span>
+        </div>
         <div class="report-grid">
           <form class="upload-panel" id="reportForm">
-            <label class="dropzone" id="dropzone">
-              <input id="reportFile" name="report_file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt">
-              <span class="dropzone-icon">UP</span>
+            <label class="dropzone" for="reportFile">
+              <input id="reportFile" name="file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.html" required>
+              <span class="dropzone-icon">FILE</span>
               <strong id="selectedFileName">选择巡检报告文件</strong>
-              <small>PDF、Word、图片或文本</small>
+              <small>PDF、Word、图片、文本或 HTML</small>
             </label>
-
             <div class="report-fields">
               <label>
-                <span>设备编号</span>
-                <input id="reportDevice" type="text" placeholder="cabinet_01">
+                <span>关联设备</span>
+                <select id="reportDevice" name="device_id"></select>
               </label>
               <label>
-                <span>巡检记录编号</span>
-                <input id="reportRecord" type="text" placeholder="rec_019">
+                <span>关联记录</span>
+                <select id="reportRecord" name="record_id"></select>
               </label>
               <label>
                 <span>处理状态</span>
-                <select id="reportStatus">
+                <select id="reportStatus" name="handle_status">
                   <option value="reviewing">复核中</option>
                   <option value="resolved">已处理</option>
                   <option value="pending">待处理</option>
                 </select>
               </label>
               <label class="wide-field">
-                <span>现场说明</span>
-                <textarea id="reportNote" rows="5" placeholder="填写巡检员现场检查结果、处理过程或补充说明"></textarea>
+                <span>备注</span>
+                <textarea id="reportNote" name="note" rows="5" placeholder="现场处理结果、补充检查情况、设备状态"></textarea>
               </label>
             </div>
-
-            <button class="primary-action" id="reportSubmit" type="submit">提交 Report</button>
+            <button class="primary-action" id="reportSubmit" type="submit">提交报告</button>
           </form>
-
           <aside class="report-side">
-            <div class="report-card">
-              <span>今日上传</span>
-              <strong id="uploadCount">0</strong>
-            </div>
-            <div class="report-card">
+            <article class="report-card">
               <span>当前巡检员</span>
               <strong id="reportInspectorName">--</strong>
-            </div>
-            <div class="upload-list" id="uploadList">
-              <p>暂无上传记录</p>
-            </div>
+            </article>
+            <article class="report-card">
+              <span>本次会话提交</span>
+              <strong id="uploadCount">0</strong>
+            </article>
+            <div class="upload-list" id="uploadList"></div>
           </aside>
+        </div>
+      </section>
+
+      <section class="inspector-view" id="inspectorAgentView" data-inspector-panel="agent">
+        <div class="workspace-topbar">
+          <div>
+            <p class="eyebrow">Power Agent</p>
+            <h2 id="agentGreeting">现场智能问答</h2>
+          </div>
+          <button class="ghost-action" id="newChatBtn" type="button">新对话</button>
+        </div>
+        <div class="agent-stage">
+          <div class="chat-thread" id="chatThread"></div>
+          <form class="agent-composer" id="agentForm">
+            <label class="composer-tool" title="上传图片">
+              +
+              <input id="agentImage" type="file" accept="image/*">
+            </label>
+            <textarea id="agentInput" rows="1" placeholder="询问设备状态、告警记录或上传图片分析"></textarea>
+            <button class="send-btn" type="submit" aria-label="发送">↑</button>
+          </form>
+          <div class="agent-attachment hidden" id="agentAttachmentName"></div>
         </div>
       </section>
     </section>
   </main>
+
+  <main class="admin-shell hidden" id="adminShell" data-role-shell="admin">
+    <header class="topbar admin-topbar">
+      <div>
+        <p class="eyebrow">System Admin</p>
+        <h1>管理员控制台</h1>
+      </div>
+      <div class="top-actions">
+        <div class="user-section">
+          <span class="user-avatar" data-user-avatar></span>
+          <div class="user-meta">
+            <span class="user-name" data-user-name>--</span>
+            <span class="user-role" data-user-role>--</span>
+          </div>
+          <button class="logout-btn" type="button" data-logout>退出</button>
+        </div>
+        <button class="nav-return-btn" id="adminMonitorBtn" type="button">监控工作台</button>
+      </div>
+    </header>
+    <section class="admin-grid">
+      <article class="admin-metric">
+        <span>用户数</span>
+        <strong id="adminUserCount">0</strong>
+      </article>
+      <article class="admin-metric">
+        <span>边缘节点</span>
+        <strong id="adminNodeCount">0</strong>
+      </article>
+      <article class="admin-metric">
+        <span>活跃告警</span>
+        <strong id="adminAlertCount">0</strong>
+      </article>
+      <article class="admin-metric">
+        <span>报告文件</span>
+        <strong id="adminReportCount">0</strong>
+      </article>
+    </section>
+    <section class="admin-tables">
+      <section class="table-panel">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Users</p>
+            <h2>用户与角色</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>用户</th><th>角色</th><th>状态</th><th>创建时间</th></tr>
+            </thead>
+            <tbody id="adminUsersBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="table-panel">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Edge Nodes</p>
+            <h2>边缘节点</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>节点</th><th>状态</th><th>模型</th><th>设备数</th></tr>
+            </thead>
+            <tbody id="adminNodesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="deviceModalBackdrop" aria-hidden="true">
+    <div class="modal" id="deviceModal" role="dialog" aria-modal="true" aria-labelledby="deviceModalTitle">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Edge Devices</p>
+          <h2 id="deviceModalTitle">设备列表</h2>
+        </div>
+        <button class="icon-btn modal-close" id="deviceModalClose" type="button" aria-label="关闭设备列表">×</button>
+      </div>
+      <p class="modal-meta" id="deviceModalMeta">--</p>
+      <div class="device-list" id="deviceList">加载中...</div>
+    </div>
+  </div>
 
   <script src="/dashboard-assets/app.js"></script>
 </body>

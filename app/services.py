@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import object_session
 
 from app.config import IMAGE_DIR, REPORT_DIR
 from app.entitys import (
@@ -205,12 +206,12 @@ def save_inference(db: Session, payload: InferenceIn) -> dict:
 
     # alarm events
     alarm_events: list[AlarmEvent] = []
-    for detection in payload.detections:
+    for detection, infer in zip(payload.detections, inference_results):
         if detection.status in {"warning", "critical"}:
             alarm = AlarmEvent(
                 alarm_id=next_id(db, AlarmEvent, "alarm_id", "alarm"),
                 device_id=dev_id,
-                result_id=inference_results[0].result_id if inference_results else None,
+                result_id=infer.result_id,
                 record_id=record_id,
                 alarm_type=f"{detection.label}_{detection.status}",
                 alarm_level=detection.status,
@@ -584,11 +585,25 @@ def _inference_results_for_record(record: InspectionRecord) -> list[InferenceRes
     results: list[InferenceResult] = []
     if record.inference_result:
         results.append(record.inference_result)
-    # also find by record_id pattern in alarm_events
     if hasattr(record, "alarm_events") and record.alarm_events:
         for alarm in record.alarm_events:
             if alarm.inference_result and alarm.inference_result not in results:
                 results.append(alarm.inference_result)
+    db = object_session(record)
+    if db is not None and record.image_uri and record.inspected_at:
+        related = db.scalars(
+            select(InferenceResult)
+            .where(
+                InferenceResult.device_id == record.device_id,
+                InferenceResult.node_id == record.node_id,
+                InferenceResult.image_uri == record.image_uri,
+                InferenceResult.infer_time == record.inspected_at,
+            )
+            .order_by(InferenceResult.result_id)
+        ).all()
+        for item in related:
+            if item not in results:
+                results.append(item)
     return results
 
 
@@ -1109,6 +1124,21 @@ def create_user(db: Session, username: str, password: str, role: str,
         "role": user.role,
         "phone": user.phone,
     }
+
+
+def list_users(db: Session) -> list[dict]:
+    users = db.scalars(select(User).order_by(User.created_at.desc())).all()
+    return [
+        {
+            "user_id": u.user_id,
+            "username": u.username,
+            "role": u.role,
+            "phone": u.phone,
+            "status": u.status,
+            "created_at": u.created_at,
+        }
+        for u in users
+    ]
 
 
 # ═══════════════════════════ Operation Log ═════════════════════
