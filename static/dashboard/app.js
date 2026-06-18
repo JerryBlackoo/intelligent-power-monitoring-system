@@ -1,50 +1,42 @@
 const els = {
-  nodePill: document.querySelector("#nodePill"),
-  nodeText: document.querySelector("#nodeText"),
-  overallStatus: document.querySelector("#overallStatus"),
-  warningCount: document.querySelector("#warningCount"),
-  criticalCount: document.querySelector("#criticalCount"),
-  lastInspection: document.querySelector("#lastInspection"),
-  modelVersion: document.querySelector("#modelVersion"),
-  frame: document.querySelector("#frame"),
-  emptyFrame: document.querySelector("#emptyFrame"),
-  alertsBody: document.querySelector("#alertsBody"),
-  recordsBody: document.querySelector("#recordsBody"),
-  logBox: document.querySelector("#logBox"),
-  refreshBtn: document.querySelector("#refreshBtn"),
-  mockBtn: document.querySelector("#mockBtn"),
-  reportBtn: document.querySelector("#reportBtn"),
-  explainBtn: document.querySelector("#explainBtn"),
+  loginScreen: document.querySelector("#loginScreen"),
+  loginForm: document.querySelector("#loginForm"),
+  loginUsername: document.querySelector("#loginUsername"),
+  loginPassword: document.querySelector("#loginPassword"),
+  loginError: document.querySelector("#loginError"),
+  loginSubmit: document.querySelector("#loginSubmit"),
+  userAvatar: document.querySelector("#userAvatar"),
+  userName: document.querySelector("#userName"),
+  userRole: document.querySelector("#userRole"),
+  logoutBtn: document.querySelector("#logoutBtn"),
+  navItems: document.querySelectorAll("[data-inspector-view]"),
+  viewPanels: document.querySelectorAll("[data-view-panel]"),
+  agentGreeting: document.querySelector("#agentGreeting"),
+  agentForm: document.querySelector("#agentForm"),
+  agentInput: document.querySelector("#agentInput"),
+  agentImage: document.querySelector("#agentImage"),
+  agentAttachmentName: document.querySelector("#agentAttachmentName"),
+  chatThread: document.querySelector("#chatThread"),
+  newChatBtn: document.querySelector("#newChatBtn"),
+  suggestionButtons: document.querySelectorAll("[data-prompt]"),
+  reportForm: document.querySelector("#reportForm"),
+  reportFile: document.querySelector("#reportFile"),
+  selectedFileName: document.querySelector("#selectedFileName"),
+  uploadState: document.querySelector("#uploadState"),
+  uploadCount: document.querySelector("#uploadCount"),
+  uploadList: document.querySelector("#uploadList"),
+  reportInspectorName: document.querySelector("#reportInspectorName"),
+  reportDevice: document.querySelector("#reportDevice"),
+  reportRecord: document.querySelector("#reportRecord"),
+  reportStatus: document.querySelector("#reportStatus"),
+  reportNote: document.querySelector("#reportNote"),
 };
 
-const mockPayload = {
-  node_id: "atlas_01",
-  device_id: "cabinet_01",
-  captured_at: "2026-06-16 15:30:00",
-  image_uri: "/images/rec_001.jpg",
-  model_version: "yolov5s-power-v1",
-  detections: [
-    {
-      label: "red_indicator",
-      confidence: 0.91,
-      bbox: [120, 80, 60, 40],
-      status: "warning",
-      description: "检测到红色告警指示灯",
-    },
-    {
-      label: "meter",
-      confidence: 0.87,
-      bbox: [260, 100, 90, 90],
-      status: "normal",
-      description: "检测到仪表区域",
-    },
-  ],
-};
+const SESSION_KEY = "power_inspection_user";
 
-function writeLog(message) {
-  const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-  els.logBox.textContent = `[${time}] ${message}\n` + els.logBox.textContent;
-}
+let currentUser = null;
+let uploadCount = 0;
+let selectedAgentImageDataUrl = null;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -58,162 +50,284 @@ async function api(path, options = {}) {
   return body.data;
 }
 
-function statusLabel(value) {
+function roleLabel(role) {
   const labels = {
-    normal: "正常",
-    pending_review: "待复核",
-    warning: "一般告警",
-    critical: "严重告警",
-    failed: "失败",
+    monitor: "监控员",
+    inspector: "巡检员",
+    admin: "管理员",
   };
-  return labels[value] || value || "--";
+  return labels[role] || role || "--";
 }
 
-function tag(value) {
-  return `<span class="tag ${value || "normal"}">${statusLabel(value)}</span>`;
+function setUserDisplay(user) {
+  const username = user?.username || "--";
+  els.userName.textContent = username;
+  els.userRole.textContent = roleLabel(user?.role);
+  els.userAvatar.textContent = username.charAt(0).toUpperCase();
+  els.reportInspectorName.textContent = username;
+  els.agentGreeting.textContent = `嗨，${username}。开始现场问答`;
 }
 
-function setNode(node) {
-  const dot = els.nodePill.querySelector(".dot");
-  dot.className = "dot";
-  if (!node) {
-    dot.classList.add("dot-muted");
-    els.nodeText.textContent = "等待边缘节点";
+function showLogin(message = "") {
+  currentUser = null;
+  document.body.classList.add("auth-locked");
+  els.loginScreen.classList.remove("hidden");
+  els.loginScreen.setAttribute("aria-hidden", "false");
+  els.loginError.textContent = message;
+  setUserDisplay(null);
+  window.setTimeout(() => els.loginUsername.focus(), 0);
+}
+
+function hideLogin() {
+  document.body.classList.remove("auth-locked");
+  els.loginScreen.classList.add("hidden");
+  els.loginScreen.setAttribute("aria-hidden", "true");
+}
+
+function loadSessionUser() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch (error) {
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const username = els.loginUsername.value.trim();
+  const password = els.loginPassword.value;
+  if (!username || !password) {
+    els.loginError.textContent = "请输入用户名和密码";
     return;
   }
-  dot.classList.add(node.status === "online" ? "dot-online" : "dot-muted");
-  els.nodeText.textContent = `${node.node_id} · ${node.status}`;
-}
 
-function clearDetections() {
-  els.frame.querySelectorAll(".detection-box").forEach((box) => box.remove());
-}
+  const originalText = els.loginSubmit.textContent;
+  els.loginSubmit.disabled = true;
+  els.loginSubmit.textContent = "登录中";
+  els.loginError.textContent = "";
 
-function drawDetections(record) {
-  clearDetections();
-  els.frame.classList.toggle("has-evidence", Boolean(record?.image_uri));
-  els.frame.style.backgroundImage = record?.image_uri ? `url("${record.image_uri}")` : "";
-  if (!record || !record.detections || record.detections.length === 0) {
-    els.emptyFrame.style.display = record?.image_uri ? "none" : "block";
-    return;
-  }
-  els.emptyFrame.style.display = "none";
-  const scaleX = els.frame.clientWidth / 640;
-  const scaleY = els.frame.clientHeight / 420;
-  for (const detection of record.detections) {
-    const [x, y, width, height] = detection.bbox;
-    const box = document.createElement("div");
-    box.className = `detection-box ${detection.status}`;
-    box.style.left = `${x * scaleX}px`;
-    box.style.top = `${y * scaleY}px`;
-    box.style.width = `${width * scaleX}px`;
-    box.style.height = `${height * scaleY}px`;
-    box.innerHTML = `<span>${detection.label} ${(detection.confidence * 100).toFixed(0)}%</span>`;
-    els.frame.appendChild(box);
+  try {
+    const user = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+    if (user.role !== "inspector") {
+      throw new Error("请使用巡检员账号登录");
+    }
+    currentUser = user;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    setUserDisplay(user);
+    hideLogin();
+    els.loginPassword.value = "";
+    setInspectorView("agent");
+  } catch (error) {
+    localStorage.removeItem(SESSION_KEY);
+    showLogin(error.message || "登录失败");
+  } finally {
+    els.loginSubmit.disabled = false;
+    els.loginSubmit.textContent = originalText;
   }
 }
 
-function renderAlerts(alerts) {
-  if (!alerts.length) {
-    els.alertsBody.innerHTML = `<tr><td colspan="5">当前没有未关闭告警</td></tr>`;
-    return;
-  }
-  els.alertsBody.innerHTML = alerts.map((alert) => `
-    <tr>
-      <td>${alert.alert_id}</td>
-      <td>${alert.device_id || "-"}</td>
-      <td>${tag(alert.level)}</td>
-      <td>${alert.description}</td>
-      <td>${alert.status}</td>
-    </tr>
-  `).join("");
+function handleLogout() {
+  localStorage.removeItem(SESSION_KEY);
+  showLogin("已退出登录");
 }
 
-function renderRecords(records) {
-  if (!records.length) {
-    els.recordsBody.innerHTML = `<tr><td colspan="5">暂无巡检记录</td></tr>`;
-    return;
-  }
-  els.recordsBody.innerHTML = records.map((record) => `
-    <tr>
-      <td>${record.record_id}</td>
-      <td>${record.device_id || "-"}</td>
-      <td>${record.inspected_at}</td>
-      <td>${tag(record.overall_status)}</td>
-      <td>${record.alert_count}</td>
-    </tr>
-  `).join("");
-}
-
-async function refreshDashboard() {
-  const [latest, alerts, records] = await Promise.all([
-    api("/api/status/latest"),
-    api("/api/alerts/active"),
-    api("/api/records?page=1&page_size=8"),
-  ]);
-
-  setNode(latest.edge_node);
-  const record = latest.latest_record;
-  els.overallStatus.textContent = statusLabel(record?.overall_status);
-  els.warningCount.textContent = latest.summary?.warning_count ?? 0;
-  els.criticalCount.textContent = latest.summary?.critical_count ?? 0;
-  els.lastInspection.textContent = record?.inspected_at || "--";
-  els.modelVersion.textContent = `model: ${record?.model_version || latest.edge_node?.model_version || "--"}`;
-  drawDetections(record);
-  renderAlerts(alerts);
-  renderRecords(records.items || []);
-}
-
-async function uploadMock() {
-  await api("/api/edge/heartbeat", {
-    method: "POST",
-    body: JSON.stringify({
-      node_id: "atlas_01",
-      ip: "192.168.1.88",
-      status: "online",
-      model_version: "yolov5s-power-v1",
-      timestamp: "2026-06-16 15:29:59",
-    }),
+function setInspectorView(view) {
+  els.navItems.forEach((item) => {
+    const active = item.dataset.inspectorView === view;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", active ? "true" : "false");
   });
-  const result = await api("/api/edge/inference", {
-    method: "POST",
-    body: JSON.stringify({ ...mockPayload, record_id: `rec_${Date.now()}` }),
+  els.viewPanels.forEach((panel) => {
+    const active = panel.dataset.viewPanel === view;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
   });
-  writeLog(`已上传模拟推理，生成告警 ${result.alert_count} 条。`);
-  await refreshDashboard();
+  if (view === "agent") {
+    window.setTimeout(() => els.agentInput.focus(), 0);
+  }
 }
 
-async function generateReport() {
-  const data = await api("/api/reports", {
-    method: "POST",
-    body: JSON.stringify({
-      start_time: "2026-06-16 00:00:00",
-      end_time: "2026-06-16 23:59:59",
-      format: "html",
-      include_images: true,
-    }),
-  });
-  writeLog(`报告已生成：${data.file_uri}`);
-  window.open(data.file_uri, "_blank");
+function addChatMessage(type, text) {
+  const article = document.createElement("article");
+  article.className = `chat-message ${type}`;
+  const avatar = document.createElement("span");
+  const content = document.createElement("p");
+  avatar.textContent = type === "user" ? "我" : "AI";
+  content.textContent = text;
+  article.append(avatar, content);
+  els.chatThread.appendChild(article);
+  els.chatThread.scrollTop = els.chatThread.scrollHeight;
+  return article;
 }
 
-async function explainFirstAlert() {
-  const alerts = await api("/api/alerts/active");
-  if (!alerts.length) {
-    writeLog("当前没有可解释的告警。");
+function collectChatHistory() {
+  return Array.from(els.chatThread.querySelectorAll(".chat-message"))
+    .slice(-8)
+    .map((item) => ({
+      role: item.classList.contains("user") ? "user" : "assistant",
+      content: item.querySelector("p")?.textContent || "",
+    }))
+    .filter((item) => item.content);
+}
+
+async function handleAgentSubmit(event) {
+  event.preventDefault();
+  const text = els.agentInput.value.trim();
+  if (!text) {
     return;
   }
-  const advice = await api("/api/llm/explain", {
-    method: "POST",
-    body: JSON.stringify({ alert_id: alerts[0].alert_id }),
-  });
-  writeLog(`${advice.summary}\n处理建议：${advice.action_steps.join("；")}`);
+  const history = collectChatHistory();
+  addChatMessage("user", text);
+  els.agentInput.value = "";
+  const pending = addChatMessage("assistant", "正在分析巡检数据...");
+  try {
+    const result = await api("/api/agent/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        message: text,
+        history,
+        image_data_url: selectedAgentImageDataUrl,
+      }),
+    });
+    const toolText = Array.isArray(result.tool_calls) && result.tool_calls.length
+      ? `\n\n调用工具：${result.tool_calls.map((tool) => tool.name).join("、")}`
+      : "";
+    pending.querySelector("p").textContent = `${result.reply || "Agent 暂无回复"}${toolText}`;
+  } catch (error) {
+    pending.querySelector("p").textContent = error.message || "Agent 请求失败";
+  } finally {
+    clearAgentAttachment();
+  }
 }
 
-els.refreshBtn.addEventListener("click", () => refreshDashboard().then(() => writeLog("数据已刷新。")).catch((error) => writeLog(error.message)));
-els.mockBtn.addEventListener("click", () => uploadMock().catch((error) => writeLog(error.message)));
-els.reportBtn.addEventListener("click", () => generateReport().catch((error) => writeLog(error.message)));
-els.explainBtn.addEventListener("click", () => explainFirstAlert().catch((error) => writeLog(error.message)));
-window.addEventListener("resize", () => refreshDashboard().catch(() => {}));
+function resetChat() {
+  els.chatThread.innerHTML = `
+    <article class="chat-message assistant">
+      <span>AI</span>
+      <p>我可以协助整理巡检记录、解释告警原因、生成处理建议。</p>
+    </article>
+  `;
+  els.agentInput.value = "";
+  clearAgentAttachment();
+  els.agentInput.focus();
+}
 
-refreshDashboard().catch((error) => writeLog(error.message));
+function setSelectedFile(file) {
+  els.selectedFileName.textContent = file ? file.name : "选择巡检报告文件";
+  els.uploadState.textContent = file ? "已选择文件" : "待上传";
+}
+
+async function handleReportSubmit(event) {
+  event.preventDefault();
+  const file = els.reportFile.files[0];
+  if (!file) {
+    els.uploadState.textContent = "请选择文件";
+    return;
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("handler", currentUser?.username || "inspector");
+  form.append("handle_status", els.reportStatus.value);
+  if (els.reportDevice.value.trim()) {
+    form.append("device_id", els.reportDevice.value.trim());
+  }
+  if (els.reportRecord.value.trim()) {
+    form.append("record_id", els.reportRecord.value.trim());
+  }
+  if (els.reportNote.value.trim()) {
+    form.append("note", els.reportNote.value.trim());
+  }
+
+  els.uploadState.textContent = "上传中";
+  els.reportForm.querySelector("#reportSubmit").disabled = true;
+  try {
+    const response = await fetch("/api/reports/upload", { method: "POST", body: form });
+    const body = await response.json();
+    if (!response.ok || body.code >= 400) {
+      throw new Error(body.message || body.detail || "Report 上传失败");
+    }
+    appendUploadedReport(body.data);
+    els.reportForm.reset();
+    setSelectedFile(null);
+    els.uploadState.textContent = "上传完成";
+  } catch (error) {
+    els.uploadState.textContent = error.message || "上传失败";
+  } finally {
+    els.reportForm.querySelector("#reportSubmit").disabled = false;
+  }
+}
+
+function appendUploadedReport(report) {
+  uploadCount += 1;
+  els.uploadCount.textContent = String(uploadCount);
+  if (uploadCount === 1) {
+    els.uploadList.innerHTML = "";
+  }
+  const item = document.createElement("article");
+  item.className = "upload-item";
+  const title = document.createElement("strong");
+  const meta = document.createElement("span");
+  const note = document.createElement("span");
+  title.textContent = report.file_name || report.report_id;
+  meta.textContent = `设备：${report.device_id || "--"} · 记录：${report.record_id || "--"} · ${report.generated_at || ""}`;
+  note.textContent = report.summary?.note || "已写入后端 reports 表";
+  item.append(title, meta, note);
+  els.uploadList.prepend(item);
+}
+
+function clearAgentAttachment() {
+  selectedAgentImageDataUrl = null;
+  els.agentImage.value = "";
+  els.agentAttachmentName.textContent = "";
+  els.agentAttachmentName.classList.add("hidden");
+}
+
+function readAgentImage(file) {
+  if (!file) {
+    clearAgentAttachment();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    selectedAgentImageDataUrl = String(reader.result || "");
+    els.agentAttachmentName.textContent = `已选择图片：${file.name}`;
+    els.agentAttachmentName.classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+}
+
+function boot() {
+  const sessionUser = loadSessionUser();
+  if (!sessionUser || sessionUser.role !== "inspector") {
+    showLogin();
+    return;
+  }
+  currentUser = sessionUser;
+  setUserDisplay(sessionUser);
+  hideLogin();
+  setInspectorView("agent");
+}
+
+els.loginForm.addEventListener("submit", (event) => handleLogin(event));
+els.logoutBtn.addEventListener("click", () => handleLogout());
+els.navItems.forEach((item) => {
+  item.addEventListener("click", () => setInspectorView(item.dataset.inspectorView));
+});
+els.agentForm.addEventListener("submit", (event) => handleAgentSubmit(event));
+els.newChatBtn.addEventListener("click", () => resetChat());
+els.suggestionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    els.agentInput.value = button.dataset.prompt;
+    els.agentInput.focus();
+  });
+});
+els.agentImage.addEventListener("change", () => readAgentImage(els.agentImage.files[0]));
+els.reportFile.addEventListener("change", () => setSelectedFile(els.reportFile.files[0]));
+els.reportForm.addEventListener("submit", (event) => handleReportSubmit(event));
+
+boot();

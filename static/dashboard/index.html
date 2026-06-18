@@ -3,128 +3,168 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>电力智能巡检工作台</title>
+  <title>巡检员智能工作台</title>
   <link rel="stylesheet" href="/dashboard-assets/styles.css">
 </head>
-<body>
-  <main class="shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Atlas 200I DK / Power Inspection</p>
-        <h1>电力智能巡检工作台</h1>
-      </div>
-      <div class="top-actions">
-        <div class="node-pill" id="nodePill">
-          <span class="dot dot-muted"></span>
-          <span id="nodeText">等待边缘节点</span>
+<body class="auth-locked">
+  <section class="login-screen" id="loginScreen" aria-label="巡检员登录">
+    <form class="login-card" id="loginForm">
+      <div class="login-mark">A</div>
+      <p class="eyebrow">Inspector Access</p>
+      <h2>巡检员登录</h2>
+      <label class="login-field">
+        <span>用户名</span>
+        <input id="loginUsername" name="username" type="text" autocomplete="username" required>
+      </label>
+      <label class="login-field">
+        <span>密码</span>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p class="login-error" id="loginError" role="alert"></p>
+      <button class="login-submit" id="loginSubmit" type="submit">登录</button>
+    </form>
+  </section>
+
+  <main class="inspector-shell" id="inspectorShell">
+    <aside class="inspector-sidebar" aria-label="巡检员功能菜单">
+      <div class="sidebar-head">
+        <div>
+          <p class="eyebrow">Power Agent</p>
+          <h1>巡检员工作台</h1>
         </div>
-        <button class="icon-btn" id="refreshBtn" title="刷新数据" aria-label="刷新数据">↻</button>
+        <button class="sidebar-toggle" type="button" aria-label="折叠菜单">□</button>
       </div>
-    </header>
 
-    <section class="status-strip" aria-label="巡检状态总览">
-      <article>
-        <span>最新状态</span>
-        <strong id="overallStatus">未巡检</strong>
-      </article>
-      <article>
-        <span>一般告警</span>
-        <strong id="warningCount">0</strong>
-      </article>
-      <article>
-        <span>严重告警</span>
-        <strong id="criticalCount">0</strong>
-      </article>
-      <article>
-        <span>最近巡检</span>
-        <strong id="lastInspection">--</strong>
-      </article>
-    </section>
+      <nav class="side-nav">
+        <button class="side-nav-item active" type="button" data-inspector-view="agent" aria-controls="agentView" aria-selected="true">
+          <span class="nav-icon">AI</span>
+          <span>Agent 对话</span>
+        </button>
+        <button class="side-nav-item" type="button" data-inspector-view="report" aria-controls="reportView" aria-selected="false">
+          <span class="nav-icon">UP</span>
+          <span>Report 上传</span>
+        </button>
+      </nav>
 
-    <section class="workbench">
-      <section class="monitor-panel" aria-label="监控画面">
-        <div class="panel-head">
+      <div class="sidebar-section">
+        <p>当前任务</p>
+        <button class="task-pill" type="button">待处理巡检报告</button>
+        <button class="task-pill" type="button">设备异常复核</button>
+      </div>
+
+      <div class="sidebar-user">
+        <span class="user-avatar" id="userAvatar"></span>
+        <div class="user-meta">
+          <span class="user-name" id="userName">--</span>
+          <span class="user-role" id="userRole">--</span>
+        </div>
+        <button class="logout-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录">退出</button>
+      </div>
+    </aside>
+
+    <section class="inspector-main">
+      <section class="inspector-view agent-view active" id="agentView" data-view-panel="agent" aria-label="Agent 对话界面">
+        <header class="workspace-topbar">
           <div>
-            <p class="eyebrow">Evidence Frame</p>
-            <h2>设备画面与检测框</h2>
+            <p class="eyebrow">Inspection Agent</p>
+            <h2>Agent 对话</h2>
           </div>
-          <span id="modelVersion">model: --</span>
-        </div>
-        <div class="frame" id="frame">
-          <div class="cabinet">
-            <div class="busbar"></div>
-            <div class="meter"></div>
-            <div class="indicator red"></div>
-            <div class="indicator green"></div>
-            <div class="switch"></div>
-            <div class="vents"></div>
+          <button class="ghost-icon-btn" id="newChatBtn" type="button" title="新建对话" aria-label="新建对话">+</button>
+        </header>
+
+        <div class="agent-stage">
+          <div class="agent-greeting">
+            <p class="eyebrow">On Duty</p>
+            <h3 id="agentGreeting">嗨，巡检员。开始现场问答</h3>
           </div>
-          <div class="empty-state" id="emptyFrame">暂无巡检画面，先上传模拟数据</div>
+
+          <div class="chat-thread" id="chatThread" aria-live="polite">
+            <article class="chat-message assistant">
+              <span>AI</span>
+              <p>我可以协助整理巡检记录、解释告警原因、生成处理建议。</p>
+            </article>
+          </div>
+
+          <div class="agent-attachment hidden" id="agentAttachmentName"></div>
+          <form class="agent-composer" id="agentForm">
+            <label class="composer-tool" aria-label="添加图片">
+              <input id="agentImage" type="file" accept="image/*">
+              <span>+</span>
+            </label>
+            <textarea id="agentInput" rows="1" placeholder="询问告警原因、处理建议或报告摘要"></textarea>
+            <button class="send-btn" type="submit" aria-label="发送">↑</button>
+          </form>
+
+          <div class="agent-suggestions" aria-label="快捷提问">
+            <button type="button" data-prompt="帮我总结最近一次巡检记录">总结巡检记录</button>
+            <button type="button" data-prompt="这条绝缘子缺陷告警应该如何处理">告警处理建议</button>
+            <button type="button" data-prompt="根据上传报告生成整改说明">生成整改说明</button>
+          </div>
         </div>
       </section>
 
-      <aside class="control-panel" aria-label="操作区">
-        <div class="panel-head compact">
+      <section class="inspector-view report-view" id="reportView" data-view-panel="report" aria-label="Report 上传界面" hidden>
+        <header class="workspace-topbar">
           <div>
-            <p class="eyebrow">Control</p>
-            <h2>联调操作</h2>
+            <p class="eyebrow">Inspection Report</p>
+            <h2>Report 上传</h2>
           </div>
-        </div>
-        <button class="primary-btn" id="mockBtn">上传模拟推理</button>
-        <button class="secondary-btn" id="reportBtn">生成今日报告</button>
-        <button class="secondary-btn" id="explainBtn">解释首条告警</button>
-        <div class="log-box" id="logBox">系统就绪，等待操作。</div>
-      </aside>
-    </section>
+          <span class="upload-state" id="uploadState">待上传</span>
+        </header>
 
-    <section class="data-grid">
-      <section class="table-panel">
-        <div class="panel-head compact">
-          <div>
-            <p class="eyebrow">Alerts</p>
-            <h2>当前告警</h2>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>编号</th>
-                <th>设备</th>
-                <th>等级</th>
-                <th>描述</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody id="alertsBody"></tbody>
-          </table>
-        </div>
-      </section>
+        <div class="report-grid">
+          <form class="upload-panel" id="reportForm">
+            <label class="dropzone" id="dropzone">
+              <input id="reportFile" name="report_file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt">
+              <span class="dropzone-icon">UP</span>
+              <strong id="selectedFileName">选择巡检报告文件</strong>
+              <small>PDF、Word、图片或文本</small>
+            </label>
 
-      <section class="table-panel">
-        <div class="panel-head compact">
-          <div>
-            <p class="eyebrow">Records</p>
-            <h2>巡检记录</h2>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>记录</th>
-                <th>设备</th>
-                <th>时间</th>
-                <th>状态</th>
-                <th>告警</th>
-              </tr>
-            </thead>
-            <tbody id="recordsBody"></tbody>
-          </table>
+            <div class="report-fields">
+              <label>
+                <span>设备编号</span>
+                <input id="reportDevice" type="text" placeholder="cabinet_01">
+              </label>
+              <label>
+                <span>巡检记录编号</span>
+                <input id="reportRecord" type="text" placeholder="rec_019">
+              </label>
+              <label>
+                <span>处理状态</span>
+                <select id="reportStatus">
+                  <option value="reviewing">复核中</option>
+                  <option value="resolved">已处理</option>
+                  <option value="pending">待处理</option>
+                </select>
+              </label>
+              <label class="wide-field">
+                <span>现场说明</span>
+                <textarea id="reportNote" rows="5" placeholder="填写巡检员现场检查结果、处理过程或补充说明"></textarea>
+              </label>
+            </div>
+
+            <button class="primary-action" id="reportSubmit" type="submit">提交 Report</button>
+          </form>
+
+          <aside class="report-side">
+            <div class="report-card">
+              <span>今日上传</span>
+              <strong id="uploadCount">0</strong>
+            </div>
+            <div class="report-card">
+              <span>当前巡检员</span>
+              <strong id="reportInspectorName">--</strong>
+            </div>
+            <div class="upload-list" id="uploadList">
+              <p>暂无上传记录</p>
+            </div>
+          </aside>
         </div>
       </section>
     </section>
   </main>
+
   <script src="/dashboard-assets/app.js"></script>
 </body>
 </html>
