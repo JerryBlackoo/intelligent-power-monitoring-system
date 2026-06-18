@@ -1,4 +1,6 @@
-from fastapi import Depends, FastAPI, HTTPException
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
@@ -22,13 +24,24 @@ from app.services import (
     explain_alert,
     get_latest_status,
     record_to_dict,
+    save_evidence_image,
     save_heartbeat,
     save_inference,
 )
+from mcp_server.power_monitoring_mcp import mcp as power_mcp
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="电力智能巡检系统后端", version="1.0.0")
+power_mcp_app = power_mcp.streamable_http_app()
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    async with power_mcp.session_manager.run():
+        yield
+
+
+app = FastAPI(title="电力智能巡检系统后端", version="1.0.0", lifespan=lifespan)
 app.mount("/images", StaticFiles(directory=IMAGE_DIR), name="images")
 app.mount("/reports", StaticFiles(directory=REPORT_DIR), name="reports")
 app.mount("/dashboard-assets", StaticFiles(directory=DASHBOARD_DIR), name="dashboard-assets")
@@ -57,6 +70,30 @@ def dashboard() -> FileResponse:
 def edge_heartbeat(payload: HeartbeatIn, db: Session = Depends(get_db)) -> ApiResponse:
     node = save_heartbeat(db, payload)
     return ok({"node_id": node.node_id, "server_time": node.last_heartbeat}, "heartbeat received")
+
+
+@app.post("/api/edge/evidence", response_model=ApiResponse)
+async def edge_evidence(
+    file: UploadFile = File(...),
+    node_id: str = Form(...),
+    captured_at: str | None = Form(None),
+    record_id: str | None = Form(None),
+) -> ApiResponse:
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="only image uploads are supported")
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="empty image file")
+    return ok(
+        save_evidence_image(
+            filename=file.filename or "evidence.jpg",
+            contents=contents,
+            node_id=node_id,
+            captured_at=captured_at,
+            record_id=record_id,
+        ),
+        "evidence uploaded",
+    )
 
 
 @app.post("/api/edge/inference", response_model=ApiResponse)
@@ -167,3 +204,6 @@ def llm_explain(payload: ExplainIn, db: Session = Depends(get_db)) -> ApiRespons
     if advice is None:
         raise HTTPException(status_code=404, detail="alert not found")
     return ok(advice, "explanation generated")
+
+
+app.mount("/", power_mcp_app, name="power-mcp")

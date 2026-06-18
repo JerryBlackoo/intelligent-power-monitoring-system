@@ -1,10 +1,12 @@
 import json
+import re
 from html import escape
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import REPORT_DIR
+from app.config import IMAGE_DIR, REPORT_DIR
 from app.models import Alert, DetectionResult, EdgeNode, InspectionRecord, MaintenanceAdvice, Report
 from app.schemas import HeartbeatIn, InferenceIn, ReportIn
 from app.utils import highest_status, next_id, now_text
@@ -24,6 +26,35 @@ def save_heartbeat(db: Session, payload: HeartbeatIn) -> EdgeNode:
     db.commit()
     db.refresh(node)
     return node
+
+
+def save_evidence_image(
+    filename: str,
+    contents: bytes,
+    node_id: str,
+    captured_at: str | None = None,
+    record_id: str | None = None,
+) -> dict:
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
+        suffix = ".jpg"
+    time_part = re.sub(r"[^0-9]", "", captured_at or now_text())[:14]
+    safe_node = re.sub(r"[^A-Za-z0-9_-]", "_", node_id) or "edge"
+    safe_record = re.sub(r"[^A-Za-z0-9_-]", "_", record_id or "") if record_id else ""
+    stem = "_".join(part for part in [safe_node, safe_record, time_part] if part)
+    target_name = f"{stem or 'evidence'}{suffix}"
+    target_path = IMAGE_DIR / target_name
+    counter = 1
+    while target_path.exists():
+        target_name = f"{stem or 'evidence'}_{counter}{suffix}"
+        target_path = IMAGE_DIR / target_name
+        counter += 1
+    target_path.write_bytes(contents)
+    return {
+        "image_uri": f"/images/{target_name}",
+        "filename": target_name,
+        "size": len(contents),
+    }
 
 
 def save_inference(db: Session, payload: InferenceIn) -> dict:

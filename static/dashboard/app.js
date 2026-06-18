@@ -91,8 +91,10 @@ function clearDetections() {
 
 function drawDetections(record) {
   clearDetections();
+  els.frame.classList.toggle("has-evidence", Boolean(record?.image_uri));
+  els.frame.style.backgroundImage = record?.image_uri ? `url("${record.image_uri}")` : "";
   if (!record || !record.detections || record.detections.length === 0) {
-    els.emptyFrame.style.display = "block";
+    els.emptyFrame.style.display = record?.image_uri ? "none" : "block";
     return;
   }
   els.emptyFrame.style.display = "none";

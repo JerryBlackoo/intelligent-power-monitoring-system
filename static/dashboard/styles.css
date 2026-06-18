@@ -199,6 +199,18 @@ h2 {
   opacity: 0.35;
 }
 
+.frame.has-evidence {
+  background-color: #111513;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.frame.has-evidence::before,
+.frame.has-evidence .cabinet {
+  display: none;
+}
+
 .cabinet {
   position: absolute;
   inset: 44px 9% 42px;
