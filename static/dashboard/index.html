@@ -179,6 +179,59 @@
           <button class="page-btn" id="nextRecordsPage" type="button">下一页</button>
         </nav>
       </section>
+
+      <section class="table-panel report-export-panel">
+        <div class="panel-head compact records-head">
+          <div>
+            <p class="eyebrow">Reports</p>
+            <h2>报表生成与导出</h2>
+          </div>
+          <span id="generatedReportState">等待生成</span>
+        </div>
+        <div class="report-export-grid">
+          <form class="generated-report-form" id="generatedReportForm">
+            <label>
+              <span>开始时间</span>
+              <input id="generatedReportStart" type="datetime-local" required>
+            </label>
+            <label>
+              <span>结束时间</span>
+              <input id="generatedReportEnd" type="datetime-local" required>
+            </label>
+            <label>
+              <span>设备范围</span>
+              <select id="generatedReportDevice"></select>
+            </label>
+            <label>
+              <span>导出格式</span>
+              <select id="generatedReportFormat">
+                <option value="html">HTML 报表</option>
+                <option value="csv">CSV 明细</option>
+              </select>
+            </label>
+            <button class="primary-action" id="generatedReportSubmit" type="submit">生成报表</button>
+          </form>
+          <div class="generated-report-result" id="generatedReportResult">
+            <span>最新生成</span>
+            <strong>暂无报表</strong>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>报表</th>
+                <th>设备</th>
+                <th>格式</th>
+                <th>记录数</th>
+                <th>生成时间</th>
+                <th>导出</th>
+              </tr>
+            </thead>
+            <tbody id="generatedReportsBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 

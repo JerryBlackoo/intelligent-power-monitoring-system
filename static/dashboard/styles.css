@@ -541,6 +541,10 @@ h2 {
   width: 100%;
 }
 
+.report-export-panel {
+  width: 100%;
+}
+
 .records-head {
   align-items: end;
 }
@@ -745,6 +749,82 @@ th {
   color: var(--muted);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.report-export-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1px;
+  border-bottom: 1px solid var(--line);
+  background: var(--line);
+}
+
+.generated-report-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  background: rgba(250, 249, 245, 0.92);
+}
+
+.generated-report-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.generated-report-form input,
+.generated-report-form select {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+
+.generated-report-form input:focus,
+.generated-report-form select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(22, 121, 140, 0.12);
+}
+
+.generated-report-form .primary-action {
+  align-self: end;
+  min-height: 36px;
+}
+
+.generated-report-result {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.generated-report-result span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.generated-report-result strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.generated-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.export-link {
+  margin-left: 10px;
 }
 
 .tag {
@@ -1299,6 +1379,8 @@ th {
   .data-grid,
   .admin-grid,
   .admin-tables,
+  .report-export-grid,
+  .generated-report-form,
   .report-grid,
   .report-fields {
     grid-template-columns: 1fr;

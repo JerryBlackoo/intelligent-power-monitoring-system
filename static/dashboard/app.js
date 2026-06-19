@@ -20,6 +20,15 @@ const els = {
   edgeRecordCount: document.querySelector("#edgeRecordCount"),
   inspectorRecordCount: document.querySelector("#inspectorRecordCount"),
   pendingRecordCount: document.querySelector("#pendingRecordCount"),
+  generatedReportForm: document.querySelector("#generatedReportForm"),
+  generatedReportStart: document.querySelector("#generatedReportStart"),
+  generatedReportEnd: document.querySelector("#generatedReportEnd"),
+  generatedReportDevice: document.querySelector("#generatedReportDevice"),
+  generatedReportFormat: document.querySelector("#generatedReportFormat"),
+  generatedReportSubmit: document.querySelector("#generatedReportSubmit"),
+  generatedReportState: document.querySelector("#generatedReportState"),
+  generatedReportResult: document.querySelector("#generatedReportResult"),
+  generatedReportsBody: document.querySelector("#generatedReportsBody"),
   recordsPageInfo: document.querySelector("#recordsPageInfo"),
   prevRecordsPage: document.querySelector("#prevRecordsPage"),
   nextRecordsPage: document.querySelector("#nextRecordsPage"),
@@ -113,6 +122,28 @@ function escapeHtml(value) {
 
 function roleHome(user) {
   return user?.role === "admin" ? "admin" : user?.role || "monitor";
+}
+
+function toDateTimeLocalValue(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDateTimeLocalValue(value) {
+  if (!value) {
+    return "";
+  }
+  return value.replace("T", " ") + ":00";
+}
+
+function setDefaultGeneratedReportRange() {
+  if (els.generatedReportStart.value && els.generatedReportEnd.value) {
+    return;
+  }
+  const end = new Date();
+  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+  els.generatedReportStart.value = toDateTimeLocalValue(start);
+  els.generatedReportEnd.value = toDateTimeLocalValue(end);
 }
 
 function showRoleShell(role) {
@@ -455,6 +486,109 @@ function renderRecordSummary(records, total) {
   els.pendingRecordCount.textContent = String(pending);
 }
 
+function reportSummaryText(summary) {
+  if (!summary || typeof summary !== "object") {
+    return "0";
+  }
+  return String(summary.record_count ?? 0);
+}
+
+function renderGeneratedReports(reports) {
+  if (!reports.length) {
+    els.generatedReportsBody.innerHTML = `<tr><td colspan="6">暂无生成报表</td></tr>`;
+    return;
+  }
+  els.generatedReportsBody.innerHTML = reports.map((report) => {
+    const fileName = report.file_uri ? report.file_uri.split("/").pop() : report.report_id;
+    return `
+      <tr>
+        <td>${escapeHtml(report.report_id)}</td>
+        <td>${escapeHtml(report.device_id || "全部设备")}</td>
+        <td>${escapeHtml((report.format || "html").toUpperCase())}</td>
+        <td>${escapeHtml(reportSummaryText(report.summary))}</td>
+        <td>${escapeHtml(report.generated_at || "-")}</td>
+        <td>
+          ${report.file_uri
+            ? `<a class="file-link" href="${escapeHtml(report.file_uri)}" target="_blank" rel="noopener">打开</a>
+               <a class="file-link export-link" href="${escapeHtml(report.file_uri)}" download="${escapeHtml(fileName)}">下载</a>`
+            : `<span class="muted-cell">无文件</span>`}
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function populateGeneratedReportDevices(devices) {
+  const current = els.generatedReportDevice.value;
+  populateSelect(
+    els.generatedReportDevice,
+    devices || [],
+    "device_id",
+    (device) => `${device.device_id} · ${device.online_status || "unknown"}`,
+    "全部设备",
+  );
+  if (current) {
+    els.generatedReportDevice.value = current;
+  }
+}
+
+function showGeneratedReportResult(report) {
+  const fileName = report.file_uri ? report.file_uri.split("/").pop() : report.report_id;
+  els.generatedReportResult.innerHTML = `
+    <span>最新生成</span>
+    <strong>${escapeHtml(report.report_id)} · ${escapeHtml((report.format || "html").toUpperCase())}</strong>
+    <div class="generated-report-actions">
+      <a class="file-link" href="${escapeHtml(report.file_uri)}" target="_blank" rel="noopener">打开报表</a>
+      <a class="file-link" href="${escapeHtml(report.file_uri)}" download="${escapeHtml(fileName)}">下载导出</a>
+    </div>
+  `;
+}
+
+async function refreshReportCenter() {
+  setDefaultGeneratedReportRange();
+  const [devices, reports] = await Promise.all([
+    api("/api/devices"),
+    api("/api/reports?limit=20"),
+  ]);
+  populateGeneratedReportDevices(devices || []);
+  renderGeneratedReports(reports || []);
+}
+
+async function handleGeneratedReport(event) {
+  event.preventDefault();
+  const startTime = fromDateTimeLocalValue(els.generatedReportStart.value);
+  const endTime = fromDateTimeLocalValue(els.generatedReportEnd.value);
+  if (!startTime || !endTime) {
+    els.generatedReportState.textContent = "请选择时间范围";
+    return;
+  }
+
+  const originalText = els.generatedReportSubmit.textContent;
+  els.generatedReportSubmit.disabled = true;
+  els.generatedReportSubmit.textContent = "生成中";
+  els.generatedReportState.textContent = "生成中";
+  try {
+    const report = await api("/api/reports", {
+      method: "POST",
+      body: JSON.stringify({
+        start_time: startTime,
+        end_time: endTime,
+        device_id: els.generatedReportDevice.value || null,
+        format: els.generatedReportFormat.value || "html",
+        include_images: true,
+      }),
+    });
+    els.generatedReportState.textContent = "生成完成";
+    showGeneratedReportResult(report);
+    await refreshReportCenter();
+  } catch (error) {
+    els.generatedReportState.textContent = error.message || "生成失败";
+  } finally {
+    els.generatedReportSubmit.disabled = false;
+    els.generatedReportSubmit.textContent = originalText;
+  }
+}
+
 function setRecordView(view) {
   recordsState.view = view;
   const showEdge = view === "edge";
@@ -502,6 +636,7 @@ async function refreshDashboard() {
   renderAlerts(alerts || []);
   renderRecordSummary(recordItems, records.total);
   updateRecordsPagination(records.total);
+  await refreshReportCenter();
 }
 
 async function runTableAction(button) {
@@ -895,6 +1030,7 @@ els.loginForm.addEventListener("submit", (event) => handleLogin(event));
 els.logoutBtns.forEach((button) => {
   button.addEventListener("click", () => handleLogout());
 });
+els.generatedReportForm.addEventListener("submit", (event) => handleGeneratedReport(event));
 els.reportForm.addEventListener("submit", (event) => handleReportUpload(event));
 els.reportFile.addEventListener("change", () => {
   const file = els.reportFile.files?.[0];

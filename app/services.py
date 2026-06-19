@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import re
 from html import escape
@@ -712,16 +714,22 @@ def create_report(db: Session, payload: ReportIn) -> dict:
 
     summary = _report_summary(records)
     report_id = next_id(db, Report, "report_id", "report")
-    file_name = f"{report_id}.html"
+    report_format = payload.format.lower()
+    if report_format not in {"html", "csv"}:
+        report_format = "html"
+    file_name = f"{report_id}.{report_format}"
     file_path = REPORT_DIR / file_name
-    file_path.write_text(render_report_html(payload, records, summary), encoding="utf-8")
+    if report_format == "csv":
+        file_path.write_text(render_report_csv(payload, records, summary), encoding="utf-8-sig", newline="")
+    else:
+        file_path.write_text(render_report_html(payload, records, summary), encoding="utf-8")
 
     report = Report(
         report_id=report_id,
         start_time=payload.start_time,
         end_time=payload.end_time,
         device_id=payload.device_id,
-        format="html",
+        format=report_format,
         file_uri=f"/reports/{file_name}",
         generated_at=now_text(),
         summary=json.dumps(summary, ensure_ascii=False),
@@ -731,8 +739,9 @@ def create_report(db: Session, payload: ReportIn) -> dict:
 
     return {
         "report_id": report_id,
-        "format": "html",
+        "format": report_format,
         "file_uri": report.file_uri,
+        "file_name": file_name,
         "summary": summary,
         "generated_at": report.generated_at,
     }
@@ -912,6 +921,35 @@ def render_report_html(payload: ReportIn, records: list[InspectionRecord], summa
 </body>
 </html>
 """
+
+
+def render_report_csv(payload: ReportIn, records: list[InspectionRecord], summary: dict) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["电力智能巡检报告"])
+    writer.writerow(["开始时间", payload.start_time])
+    writer.writerow(["结束时间", payload.end_time])
+    writer.writerow(["设备", payload.device_id or "全部设备"])
+    writer.writerow([])
+    writer.writerow(["统计项", "数量"])
+    writer.writerow(["记录总数", summary["record_count"]])
+    writer.writerow(["正常", summary["normal_count"]])
+    writer.writerow(["待复核", summary["pending_review_count"]])
+    writer.writerow(["一般告警", summary["warning_count"]])
+    writer.writerow(["严重告警", summary["critical_count"]])
+    writer.writerow([])
+    writer.writerow(["记录", "设备", "时间", "状态", "检测数", "告警数", "图片"])
+    for record in records:
+        writer.writerow([
+            record.record_id,
+            record.device_id or "-",
+            record.inspected_at,
+            record.overall_status,
+            len(_inference_results_for_record(record)),
+            len(record.alarm_events) if hasattr(record, "alarm_events") and record.alarm_events else 0,
+            record.image_uri or "",
+        ])
+    return output.getvalue()
 
 
 # ═══════════════════════════ Device management ═════════════════
