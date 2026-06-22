@@ -67,15 +67,22 @@ from app.services import (
     search_knowledge,
 )
 from app.utils import now_text
-from mcp_server.power_monitoring_mcp import mcp as power_mcp
+
+try:
+    from mcp_server.power_monitoring_mcp import mcp as power_mcp
+except ModuleNotFoundError:
+    power_mcp = None
 
 Base.metadata.create_all(bind=engine)
 
-power_mcp_app = power_mcp.streamable_http_app()
+power_mcp_app = None if power_mcp is None else power_mcp.streamable_http_app()
 
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
+    if power_mcp is None:
+        yield
+        return
     async with power_mcp.session_manager.run():
         yield
 
@@ -500,4 +507,5 @@ def create_knowledge(payload: KnowledgeIn, db: Session = Depends(get_db)) -> Api
 
 # ═══════════════════════════ MCP Mount ═══════════════════════════
 
-app.mount("/", power_mcp_app, name="power-mcp")
+if power_mcp_app is not None:
+    app.mount("/", power_mcp_app, name="power-mcp")

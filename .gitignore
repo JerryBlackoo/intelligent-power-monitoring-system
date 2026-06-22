@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 *.db
+runtime_logs/
 static/reports/*
 static/images/*
 !static/images/.gitkeep

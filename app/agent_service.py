@@ -6,23 +6,98 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import BASE_DIR
 from app.schemas import AgentChatIn
-from mcp_server.power_monitoring_mcp import (
-    AlertDetailInput,
-    AlertsInput,
-    DiagnosticsInput,
-    OverviewInput,
-    RecordDetailInput,
-    RecordsInput,
-    get_alert_detail_data,
-    get_record_detail_data,
-    get_runtime_diagnostics_data,
-    get_system_overview_data,
-    list_alerts_data,
-    list_records_data,
-)
+
+try:
+    from mcp_server.power_monitoring_mcp import (
+        AlertDetailInput,
+        AlertsInput,
+        DiagnosticsInput,
+        OverviewInput,
+        RecordDetailInput,
+        RecordsInput,
+        get_alert_detail_data,
+        get_record_detail_data,
+        get_runtime_diagnostics_data,
+        get_system_overview_data,
+        list_alerts_data,
+        list_records_data,
+    )
+except ModuleNotFoundError:
+    class _LocalToolInput(BaseModel):
+        model_config = ConfigDict(extra="ignore")
+
+
+    class OverviewInput(_LocalToolInput):
+        pass
+
+
+    class DiagnosticsInput(_LocalToolInput):
+        pass
+
+
+    class RecordsInput(_LocalToolInput):
+        device_id: str | None = None
+        status: str | None = None
+        limit: int = Field(default=20, ge=1)
+        offset: int = Field(default=0, ge=0)
+        include_detail: bool = False
+
+
+    class RecordDetailInput(_LocalToolInput):
+        record_id: str
+
+
+    class AlertsInput(_LocalToolInput):
+        device_id: str | None = None
+        level: str | None = None
+        status: str | None = None
+        include_closed: bool = False
+        limit: int = Field(default=20, ge=1)
+        offset: int = Field(default=0, ge=0)
+
+
+    class AlertDetailInput(_LocalToolInput):
+        alert_id: str
+
+
+    def _mcp_removed_message() -> str:
+        return "mcp_server has been removed from this checkout; local power_* data tools are unavailable."
+
+
+    def get_system_overview_data() -> dict[str, Any]:
+        return {
+            "project": {"mcp_server_available": False},
+            "current": {"latest_record": None},
+            "warnings": [_mcp_removed_message()],
+        }
+
+
+    def get_runtime_diagnostics_data() -> dict[str, Any]:
+        return {
+            "paths": {"project_root": str(BASE_DIR)},
+            "mcp_server_available": False,
+            "warnings": [_mcp_removed_message()],
+        }
+
+
+    def list_records_data(params: RecordsInput) -> dict[str, Any]:
+        return {"error": _mcp_removed_message(), "items": [], "count": 0}
+
+
+    def get_record_detail_data(record_id: str) -> dict[str, Any]:
+        return {"error": _mcp_removed_message(), "record_id": record_id}
+
+
+    def list_alerts_data(params: AlertsInput) -> dict[str, Any]:
+        return {"error": _mcp_removed_message(), "items": [], "count": 0}
+
+
+    def get_alert_detail_data(alert_id: str) -> dict[str, Any]:
+        return {"error": _mcp_removed_message(), "alert_id": alert_id}
 
 
 AGENT_SYSTEM_PROMPT = """你是电力智能巡检系统的现场 Agent。
