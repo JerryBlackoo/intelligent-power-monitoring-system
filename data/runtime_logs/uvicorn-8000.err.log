@@ -1,0 +1,15 @@
+INFO:     Started server process [13684]
+INFO:     Waiting for application startup.
+[06/22/26 01:32:04] INFO     StreamableHTTP      streamable_http_manager.py:131
+                             session manager                                   
+                             started                                           
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[06/22/26 09:44:43] INFO     HTTP Request: POST                 _client.py:1025
+                             https://token-plan-cn.xiaomimimo.c                
+                             om/v1/chat/completions "HTTP/1.1                  
+                             200 OK"                                           
+[06/22/26 09:44:54] INFO     HTTP Request: POST                 _client.py:1025
+                             https://token-plan-cn.xiaomimimo.c                
+                             om/v1/chat/completions "HTTP/1.1                  
+                             200 OK"                                           
