@@ -1,0 +1,118 @@
+{
+  "mcpEndpoint": "wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjk3NjA5OCwiYWdlbnRJZCI6MjA0MjkyNCwiZW5kcG9pbnRJZCI6ImFnZW50XzIwNDI5MjQiLCJwdXJwb3NlIjoibWNwLWVuZHBvaW50IiwiaWF0IjoxNzgyMTgwMTczLCJleHAiOjE4MTM3Mzc3NzN9.K70uW0prPlig0Tp1ryPLV9DKnnmdJ88WfRLQFQuxybycH4voQaPhal8QREwhFUw0Z7XCeTUVSlXcXTjCDFGqaQ",
+  "mcpServers": {
+    "power_monitoring": {
+      "type": "http",
+      "url": "https://manila-landing-try.ngrok-free.dev/mcp"
+    },
+    "calculator": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@xiaozhi-client/calculator-mcp"
+      ]
+    },
+    "datetime": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@xiaozhi-client/datetime-mcp"
+      ]
+    }
+  },
+  "asr": {
+    "model": "doubao",
+    "appid": "",
+    "accessToken": ""
+  },
+  "llm": {
+    "prompt": "./prompts/default.md",
+    "model": "",
+    "apiKey": "",
+    "baseURL": ""
+  },
+  "tts": {
+    "model": "doubao",
+    "appid": "",
+    "accessToken": "",
+    "voice_type": "zh_female_xiaohe_uranus_bigtts"
+  },
+  "connection": {
+    "heartbeatInterval": 30000,
+    "heartbeatTimeout": 10000,
+    "reconnectInterval": 5000
+  },
+  "webUI": {
+    "port": 9999
+  },
+  "mcpServerConfig": {
+    "datetime": {
+      "tools": {
+        "get_current_time": {
+          "description": "获取当前时间，支持多种格式",
+          "enable": true
+        },
+        "get_current_date": {
+          "description": "获取当前日期，支持多种格式",
+          "enable": true
+        },
+        "format_datetime": {
+          "description": "将给定的日期时间字符串或时间戳格式化为指定格式",
+          "enable": true
+        },
+        "add_time": {
+          "description": "在给定的日期时间基础上增加或减少时间",
+          "enable": true
+        }
+      }
+    },
+    "calculator": {
+      "tools": {
+        "calculator": {
+          "description": "用于数学计算，计算 JavaScript 表达式的结果",
+          "enable": true,
+          "usageCount": 1,
+          "lastUsedTime": "2026-06-23 16:21:24"
+        }
+      }
+    },
+    "power_monitoring": {
+      "tools": {
+        "power_get_system_overview": {
+          "description": "Get aggregate current state for the local intelligent power monitoring system.\n\n    Args:\n        params (OverviewInput): Output options.\n\n    Returns:\n        dict or str: Project, database, current node, latest inspection, active alert summary,\n        evidence/report directory information, and model file status.\n    ",
+          "enable": true,
+          "usageCount": 3,
+          "lastUsedTime": "2026-06-23 18:11:35"
+        },
+        "power_list_records": {
+          "description": "List inspection records with filters and pagination.\n\n    Args:\n        params (RecordsInput): Optional time range, device, status, limit, offset, detail flag,\n        and output format.\n\n    Returns:\n        dict or str: Pagination metadata and inspection records. Records can include detections\n        and alerts when include_detail is true.\n    ",
+          "enable": true,
+          "usageCount": 2,
+          "lastUsedTime": "2026-06-23 18:11:35"
+        },
+        "power_get_record_detail": {
+          "description": "Get one inspection record by id, including detections and related alerts.\n\n    Args:\n        params (RecordDetailInput): record_id and output format.\n\n    Returns:\n        dict or str: Detailed inspection record, or an actionable error if not found.\n    ",
+          "enable": true,
+          "usageCount": 8,
+          "lastUsedTime": "2026-06-23 18:14:27"
+        },
+        "power_list_alerts": {
+          "description": "List alerts with status, level, device, and pagination filters.\n\n    Args:\n        params (AlertsInput): Optional level, device_id, status, include_closed, limit, offset,\n        and output format.\n\n    Returns:\n        dict or str: Pagination metadata and alert summaries, including advice when available.\n    ",
+          "enable": true,
+          "usageCount": 19,
+          "lastUsedTime": "2026-06-23 18:14:09"
+        },
+        "power_get_alert_detail": {
+          "description": "Get one alert by id, including advice and detections from its inspection record.\n\n    Args:\n        params (AlertDetailInput): alert_id and output format.\n\n    Returns:\n        dict or str: Detailed alert data, or an actionable error if not found.\n    ",
+          "enable": true,
+          "usageCount": 5,
+          "lastUsedTime": "2026-06-23 17:15:29"
+        },
+        "power_get_runtime_diagnostics": {
+          "description": "Get local runtime diagnostics for MCP clients and deployment checks.\n\n    Args:\n        params (DiagnosticsInput): Output options.\n\n    Returns:\n        dict or str: Paths, database readiness, static artifact counts, model file status,\n        and backend API entrypoints.\n    ",
+          "enable": true
+        }
+      }
+    }
+  }
+}
