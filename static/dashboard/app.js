@@ -80,6 +80,7 @@ const els = {
 
 const SESSION_KEY = "power_inspection_user";
 const ALLOWED_ROLES = ["monitor", "inspector", "admin"];
+const DASHBOARD_POLL_INTERVAL_MS = 1000;
 
 const recordsState = {
   page: 1,
@@ -95,6 +96,17 @@ let activeShellRole = null;
 let uploadCount = 0;
 let selectedAgentImageDataUrl = null;
 let chatHistory = [];
+let dashboardPollTimer = null;
+let dashboardRefreshInFlight = false;
+
+function dashboardLog(event, details = {}) {
+  console.log(`[dashboard:${event}]`, {
+    at: new Date().toLocaleTimeString(),
+    role: activeShellRole,
+    visible: document.visibilityState,
+    ...details,
+  });
+}
 
 async function api(path, options = {}) {
   const headers = options.body instanceof FormData
@@ -121,7 +133,7 @@ function escapeHtml(value) {
 }
 
 function roleHome(user) {
-  return user?.role === "admin" ? "admin" : user?.role || "monitor";
+  return user?.role === "admin" ? "monitor" : user?.role || "monitor";
 }
 
 function toDateTimeLocalValue(date) {
@@ -152,6 +164,7 @@ function showRoleShell(role) {
     shell.classList.toggle("hidden", shell.dataset.roleShell !== role);
   });
   els.adminHomeBtn.classList.toggle("hidden", currentUser?.role !== "admin" || role === "admin");
+  syncDashboardPolling();
 }
 
 async function refreshActiveShell() {
@@ -364,25 +377,35 @@ function loadImageSize(src) {
   });
 }
 
+function recordImageSrc(record) {
+  const imageUri = record?.image_uri;
+  if (!imageUri) {
+    return "";
+  }
+  const token = record.record_id || record.inspected_at || record.updated_at || Date.now();
+  const separator = imageUri.includes("?") ? "&" : "?";
+  return `${imageUri}${separator}v=${encodeURIComponent(token)}`;
+}
+
 function renderFrameImage(container, emptyStateEl, record) {
   clearDetectionBoxes(container);
-  const imageUri = record?.image_uri;
-  container.classList.toggle("has-evidence", Boolean(imageUri));
-  container.style.backgroundImage = imageUri ? `url("${imageUri}")` : "";
-  emptyStateEl.style.display = imageUri ? "none" : "block";
+  const imageSrc = recordImageSrc(record);
+  container.classList.toggle("has-evidence", Boolean(imageSrc));
+  container.style.backgroundImage = imageSrc ? `url("${imageSrc}")` : "";
+  emptyStateEl.style.display = imageSrc ? "none" : "block";
 }
 
 async function renderFrameWithDetections(container, emptyStateEl, record) {
   renderFrameImage(container, emptyStateEl, record);
-  const imageUri = record?.image_uri;
+  const imageSrc = recordImageSrc(record);
   const detections = Array.isArray(record?.detections) ? record.detections : [];
 
-  if (!imageUri || detections.length === 0) {
+  if (!imageSrc || detections.length === 0) {
     return;
   }
 
   try {
-    const { width: imageWidth, height: imageHeight } = await loadImageSize(imageUri);
+    const { width: imageWidth, height: imageHeight } = await loadImageSize(imageSrc);
     const { offsetX, offsetY, displayWidth, displayHeight } = computeContainLayout(
       container.clientWidth,
       container.clientHeight,
@@ -612,10 +635,19 @@ function updateRecordsPagination(total) {
   els.nextRecordsPage.disabled = recordsState.page >= recordsState.totalPages;
 }
 
-async function refreshDashboard() {
+async function refreshDashboard(options = {}) {
   if (!currentUser) {
+    dashboardLog("skip", { reason: "no-current-user" });
     return;
   }
+  if (dashboardRefreshInFlight) {
+    dashboardLog("skip", { reason: "refresh-in-flight" });
+    return;
+  }
+  const { includeReports = true, source = "manual" } = options;
+  dashboardRefreshInFlight = true;
+  dashboardLog("refresh:start", { source, includeReports });
+  try {
 
   const [latest, records, alerts] = await Promise.all([
     api("/api/status/latest"),
@@ -636,7 +668,69 @@ async function refreshDashboard() {
   renderAlerts(alerts || []);
   renderRecordSummary(recordItems, records.total);
   updateRecordsPagination(records.total);
-  await refreshReportCenter();
+  if (includeReports) {
+    await refreshReportCenter();
+  }
+  dashboardLog("refresh:done", {
+    source,
+    recordId: record?.record_id || null,
+    imageUri: record?.image_uri || null,
+    recordCount: records.total || 0,
+    alertCount: (alerts || []).length,
+  });
+  } finally {
+    dashboardRefreshInFlight = false;
+  }
+}
+
+function shouldPollDashboard() {
+  return Boolean(currentUser)
+    && ["monitor", "admin"].includes(activeShellRole)
+    && document.visibilityState === "visible";
+}
+
+async function refreshPolledShell() {
+  if (activeShellRole === "monitor") {
+    await refreshDashboard({ includeReports: false, source: "poll" });
+  } else if (activeShellRole === "admin") {
+    dashboardLog("admin-refresh:start", { source: "poll" });
+    await refreshAdminWorkspace();
+    dashboardLog("admin-refresh:done", { source: "poll" });
+  }
+}
+
+function startDashboardPolling() {
+  if (dashboardPollTimer) {
+    return;
+  }
+  dashboardLog("poll:start", { intervalMs: DASHBOARD_POLL_INTERVAL_MS });
+  refreshPolledShell().catch((error) => console.error(error));
+  dashboardPollTimer = window.setInterval(() => {
+    if (!shouldPollDashboard()) {
+      dashboardLog("poll:pause", { reason: "not-pollable" });
+      syncDashboardPolling();
+      return;
+    }
+    dashboardLog("poll:tick");
+    refreshPolledShell().catch((error) => console.error(error));
+  }, DASHBOARD_POLL_INTERVAL_MS);
+}
+
+function stopDashboardPolling() {
+  if (!dashboardPollTimer) {
+    return;
+  }
+  window.clearInterval(dashboardPollTimer);
+  dashboardPollTimer = null;
+  dashboardLog("poll:stop");
+}
+
+function syncDashboardPolling() {
+  if (shouldPollDashboard()) {
+    startDashboardPolling();
+  } else {
+    stopDashboardPolling();
+  }
 }
 
 async function runTableAction(button) {
@@ -891,6 +985,7 @@ function setUserDisplay(user) {
 function showLogin(message = "") {
   currentUser = null;
   activeShellRole = null;
+  syncDashboardPolling();
   document.body.classList.add("auth-locked");
   els.roleShells.forEach((shell) => shell.classList.add("hidden"));
   els.loginScreen.classList.remove("hidden");
@@ -981,7 +1076,7 @@ function boot() {
   refreshActiveShell().catch((error) => console.error(error));
 }
 
-els.refreshBtn.addEventListener("click", () => refreshDashboard().catch((error) => console.error(error)));
+els.refreshBtn.addEventListener("click", () => refreshDashboard({ source: "button" }).catch((error) => console.error(error)));
 els.nodePill.addEventListener("click", () => openDeviceModal());
 els.deviceModalClose.addEventListener("click", () => closeDeviceModal());
 els.deviceModalBackdrop.addEventListener("click", (event) => {
@@ -1001,16 +1096,23 @@ document.addEventListener("keydown", (event) => {
     closeDeviceModal();
   }
 });
+document.addEventListener("visibilitychange", () => {
+  syncDashboardPolling();
+  if (shouldPollDashboard()) {
+    dashboardLog("visibility:resume");
+    refreshPolledShell().catch((error) => console.error(error));
+  }
+});
 els.prevRecordsPage.addEventListener("click", () => {
   if (recordsState.page > 1) {
     recordsState.page -= 1;
-    refreshDashboard().catch((error) => console.error(error));
+    refreshDashboard({ source: "pagination-prev" }).catch((error) => console.error(error));
   }
 });
 els.nextRecordsPage.addEventListener("click", () => {
   if (recordsState.page < recordsState.totalPages) {
     recordsState.page += 1;
-    refreshDashboard().catch((error) => console.error(error));
+    refreshDashboard({ source: "pagination-next" }).catch((error) => console.error(error));
   }
 });
 els.recordTabs.forEach((tab) => {
@@ -1041,7 +1143,7 @@ els.agentImage.addEventListener("change", () => handleAgentImageChange());
 els.newChatBtn.addEventListener("click", () => resetAgentChat());
 els.adminMonitorBtn.addEventListener("click", () => {
   showRoleShell("monitor");
-  refreshDashboard().catch((error) => console.error(error));
+  refreshDashboard({ source: "admin-monitor-button" }).catch((error) => console.error(error));
 });
 els.adminHomeBtn.addEventListener("click", () => {
   showRoleShell("admin");
@@ -1049,7 +1151,7 @@ els.adminHomeBtn.addEventListener("click", () => {
 });
 window.addEventListener("resize", () => {
   if (currentUser && activeShellRole === "monitor") {
-    refreshDashboard().catch(() => {});
+    refreshDashboard({ source: "resize", includeReports: false }).catch(() => {});
   }
 });
 
