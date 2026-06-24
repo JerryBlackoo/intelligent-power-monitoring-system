@@ -620,7 +620,11 @@ def get_latest_status(db: Session) -> dict:
             joinedload(InspectionRecord.inference_result).joinedload(InferenceResult.model),
             joinedload(InspectionRecord.alarm_events).joinedload(AlarmEvent.inference_result),
         )
-        .order_by(InspectionRecord.inspected_at.desc())
+        .order_by(
+            InspectionRecord.inspected_at.desc(),
+            InspectionRecord.created_at.desc(),
+            InspectionRecord.record_id.desc(),
+        )
     )
     active_alarms = db.scalars(
         select(AlarmEvent).where(AlarmEvent.alarm_status.in_(["open", "reviewing"]))
