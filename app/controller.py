@@ -260,7 +260,11 @@ def list_records(
     if status:
         query = query.where(InspectionRecord.overall_status == status)
 
-    all_items = db.scalars(query.order_by(InspectionRecord.inspected_at.desc())).unique().all()
+    all_items = db.scalars(query.order_by(
+        InspectionRecord.inspected_at.desc(),
+        InspectionRecord.created_at.desc(),
+        InspectionRecord.record_id.desc(),
+    )).unique().all()
     start = max(page - 1, 0) * page_size
     end = start + page_size
     return ok({"total": len(all_items), "items": [record_to_dict(item) for item in all_items[start:end]]})
